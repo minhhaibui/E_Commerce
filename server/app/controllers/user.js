@@ -2,7 +2,9 @@ import modelUser from "../models/user.js";
 import asynHandler from "express-async-handler";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 
+import { sendMail } from "../../ultils/senEmail.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -35,15 +37,15 @@ const login = asynHandler(async (req, res) => {
   const user = await modelUser.findOne({ email });
   const checklogin = await bcrypt.compare(password, user?.password);
   if (user && checklogin) {
-    const { password, role, ...userData } = user.toObject();
+    const { password, role, refreshToken, ...userData } = user.toObject();
     const accessToken = generateAccessToken(user._id, role);
-    const refreshToken = generateRefreshToken(user._id);
+    const newRefreshToken = generateRefreshToken(user._id);
     await modelUser.findByIdAndUpdate(
       user._id,
-      { refreshToken },
+      { refreshToken: newRefreshToken },
       { new: true }
     );
-    res.cookie("refreshToken", refreshToken, {
+    res.cookie("refreshToken", newRefreshToken, {
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
@@ -82,7 +84,8 @@ const logout = asynHandler(async (req, res) => {
   res.clearCookie("refreshToken", { httpOnly: true, secure: true });
   return res.status(200).json({ success: true, message: "logout is done" });
 });
-const getUserById = asynHandler(async (req, res) => {
+
+const getUserCurrent = asynHandler(async (req, res) => {
   const { _id } = req.user;
   const userCurrent = await modelUser
     .findById(_id)
@@ -93,10 +96,111 @@ const getUserById = asynHandler(async (req, res) => {
   });
 });
 
+const forgotPassword = asynHandler(async (req, res) => {
+  const { email } = req.query;
+  if (!email) throw new Error("missing  email");
+  const user = await modelUser.findOne({ email });
+  if (!user) throw new Error("user not found");
+
+  const resetToken = user.createPasswordChangedToken();
+  await user.save();
+
+  const html = `xin vui lòng click vào link dưới đây để đổi mật khẩu của bạn. 
+  link này sẽ hết hạn sau 15 phút kể từ bây giờ .
+   <a href="${process.env.URL_SERVER}/api/user/reset-password/${resetToken}">click here</a>`;
+  const data = {
+    email,
+    html,
+  };
+  const rs = await sendMail(data);
+  return res.status(200).json({
+    success: true,
+    rs,
+  });
+});
+
+const resetpassword = asynHandler(async (req, res) => {
+  const { token, password } = req.body;
+  if (!password || !token) throw new Error("missing  input");
+  const passwordResetToken = crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
+  const user = await modelUser.findOne({
+    passwordResetToken,
+    passwordResetExprires: { $gt: Date.now() },
+  });
+
+  if (!user) throw new Error("invalid reset token");
+
+  user.password = password;
+  user.passwordResetToken = undefined;
+  user.passwordChangeAt = Date.now();
+  user.passwordResetExprires = undefined;
+  await user.save();
+  return res.status(200).json({
+    success: user ? true : false,
+    message: user ? "updated password" : "something went wrong",
+  });
+});
+
+const getUsers = asynHandler(async (req, res) => {
+  const users = await modelUser.find().select("-password -role -refreshToken");
+  return res.status(200).json({
+    success: users ? true : false,
+    users,
+  });
+});
+const deleteUser = asynHandler(async (req, res) => {
+  const { _id } = req.query;
+  if (!_id) throw new Error("missing ID");
+  const response = await modelUser.findByIdAndDelete({ _id });
+  return res.status(200).json({
+    success: response ? true : false,
+    message: response
+      ? `user with email ${response.email} deleted`
+      : "no user delete",
+  });
+});
+const updateUser = asynHandler(async (req, res) => {
+  const { _id } = req.user;
+  if (!_id || Object.keys(req.body).length === 0)
+    throw new Error("missing inputs");
+  const { password, role } = req.body;
+  if (password || role)
+    throw new Error("Updating password or role is not allowed");
+  const response = await modelUser.findByIdAndUpdate(_id, req.body, {
+    new: true,
+  });
+  select("-password -role -refreshToken");
+  return res.status(200).json({
+    success: response ? true : false,
+    message: response ? response : "some thing went wrong",
+  });
+});
+const updateUserByAdmin = asynHandler(async (req, res) => {
+  const { id } = req.params;
+  if (Object.keys(req.body).length === 0) throw new Error("missing inputs");
+  const response = await modelUser.findByIdAndUpdate(id, req.body, {
+    new: true,
+  });
+  select("-password -role -refreshToken");
+  return res.status(200).json({
+    success: response ? true : false,
+    message: response ? response : "some thing went wrong",
+  });
+});
+
 export default {
   register,
   login,
-  getUserById,
+  getUserCurrent,
   refreshToken,
   logout,
+  forgotPassword,
+  resetpassword,
+  getUsers,
+  deleteUser,
+  updateUser,
+  updateUserByAdmin,
 };

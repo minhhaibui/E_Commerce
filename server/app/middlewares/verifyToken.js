@@ -11,6 +11,7 @@ const veryfyAccessToken = asynHandler(async (req, res, next) => {
           .json({ success: false, mes: "invalid access token" });
       }
       req.user = decode;
+      console.log(decode);
       next();
     });
   } else {
@@ -19,4 +20,15 @@ const veryfyAccessToken = asynHandler(async (req, res, next) => {
       .json({ success: false, mes: "require authentication" });
   }
 });
-export { veryfyAccessToken };
+
+const isAdmin = (req, res, next) => {
+  const { role } = req.user;
+  if (role !== "admin") {
+    return res.status(401).json({
+      success: false,
+      message: "require admin role",
+    });
+  }
+  next();
+};
+export { veryfyAccessToken, isAdmin };
