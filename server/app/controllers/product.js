@@ -20,12 +20,52 @@ const getProduct = asynHandler(async (req, res) => {
     productData: product ? product : "product not found",
   });
 });
+//filtering, sorting , pagination
 const getProducts = asynHandler(async (req, res) => {
-  const products = await modelProduct.find();
-  return res.status(200).json({
-    success: products ? true : false,
-    productsData: products ? products : "can not get product",
-  });
+  const queries = { ...req.query };
+  const excludeFields = ["limit", "sort", "page", "fields"];
+  excludeFields.forEach((el) => delete queries[el]);
+  let queryString = JSON.stringify(queries);
+  queryString = queryString.replace(
+    /\b(gte|gt|lte|lt)\b/g,
+    (matchedEl) => `$${matchedEl}`
+  );
+  const formatedQueries = JSON.parse(queryString);
+
+  //fittering
+  if (queries?.title)
+    formatedQueries.title = { $regex: queries.title, $options: "i" };
+  let queryCommand = modelProduct.find(formatedQueries);
+
+  //sorting
+  if (req.query.sort) {
+    const sortBy = req.query.sort.split(",").join(" ");
+    queryCommand = queryCommand.sort(sortBy);
+  }
+  // fields limiting
+  if (req.query.fields) {
+    const fields = req.query.sort.split(",").join(" ");
+    queryCommand = queryCommand.select(fields);
+  }
+  //pagination
+  const page = +req.query.page || 1;
+  const limit = +req.query.limit || 4;
+  const skip = (page - 1) * limit;
+  queryCommand.skip(skip).limit(limit);
+
+  try {
+    const response = await queryCommand.exec();
+    const length = response.length;
+    // const counts = await modelProduct.countDocuments(formatedQueries);
+    return res.status(200).json({
+      success: response ? true : false,
+      // counts,
+      length,
+      productsData: response ? response : "can not get product",
+    });
+  } catch (error) {
+    throw new Error(error.message);
+  }
 });
 
 const updateProduct = asynHandler(async (req, res) => {
