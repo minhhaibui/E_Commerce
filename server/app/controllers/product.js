@@ -49,7 +49,7 @@ const getProducts = asynHandler(async (req, res) => {
   }
   //pagination
   const page = +req.query.page || 1;
-  const limit = +req.query.limit || 4;
+  const limit = +req.query.limit || process.env.LIMITPAGE;
   const skip = (page - 1) * limit;
   queryCommand.skip(skip).limit(limit);
 
@@ -85,7 +85,49 @@ const deleteProduct = asynHandler(async (req, res) => {
   const deleteProduct = await modelProduct.findByIdAndDelete(id, { new: true });
   return res.status(200).json({
     success: deleteProduct ? true : false,
-    deleteProduct: deleteProduct ? deleteProduct : "can't update product",
+    deleteProduct: deleteProduct ? deleteProduct : "can't delete product",
+  });
+});
+const ratings = asynHandler(async (req, res) => {
+  const { _id } = req.user;
+
+  const { star, comment, pid } = req.body;
+
+  if (!star || !pid) throw new Error("missing inputsssss");
+  const ratingProduct = await modelProduct.findById(pid);
+  const alreadyRating = ratingProduct?.ratings?.find(
+    (el) => el.postedBy.toString() === _id
+  );
+  console.log("alreadyRating", alreadyRating);
+  if (alreadyRating) {
+    // update them coment
+    await modelProduct.updateOne(
+      { ratings: { $elemMatch: alreadyRating } },
+      {
+        $set: { "ratings.$.star": star, "ratings.$.comment": comment },
+      }
+    );
+  } else {
+    const response = await modelProduct.findByIdAndUpdate(
+      pid,
+      {
+        $push: { ratings: { star, comment, postedBy: _id } },
+      },
+      { new: true }
+    );
+  }
+  const updatedRatingProduct = await modelProduct.findById(pid);
+  const ratingsCount = updatedRatingProduct.ratings.length;
+  const sumRatings = updatedRatingProduct.ratings.reduce(
+    (sum, el) => sum + Number(el.star),
+    0
+  );
+  updatedRatingProduct.totalRatings =
+    Math.round((sumRatings * 10) / ratingsCount) / 10;
+  await updatedRatingProduct.save();
+  return res.status(200).json({
+    status: true,
+    updatedRatingProduct,
   });
 });
 export default {
@@ -94,4 +136,5 @@ export default {
   getProducts,
   updateProduct,
   deleteProduct,
+  ratings,
 };
