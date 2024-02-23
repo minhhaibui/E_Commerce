@@ -34,7 +34,105 @@ const deleteBlog = asynHandler(async (req, res) => {
   const deleteBlog = await modelBlog.findByIdAndDelete(bid, { new: true });
   return res.status(200).json({
     success: deleteBlog ? true : false,
-    deleteBlog: deleteBlog ? deleteBlog : "can't delete product",
+    deletedBlog: deleteBlog ? deleteBlog : "can't delete blog",
+  });
+});
+
+const likeBlog = asynHandler(async (req, res) => {
+  const { _id } = req.user;
+  const { bid } = req.params;
+  if (!bid) throw new Error("Missing inputs");
+  const blog = await modelBlog.findById(bid);
+  const alreadyDisLike = blog?.dislikes?.find((el) => el.toString() === _id);
+  if (alreadyDisLike) {
+    const response = await modelBlog.findByIdAndUpdate(
+      bid,
+      { $pull: { dislikes: _id } },
+      { new: true }
+    );
+    return res.status(200).json({
+      success: response ? true : false,
+      rs: response,
+    });
+  }
+
+  const isliked = blog?.likes?.find((el) => el.toString() === _id);
+  if (isliked) {
+    const response = await modelBlog.findByIdAndUpdate(
+      bid,
+      { $pull: { likes: _id } },
+      { new: true }
+    );
+    return res.status(200).json({
+      success: response ? true : false,
+      rs: response,
+    });
+  } else {
+    const response = await modelBlog.findByIdAndUpdate(
+      bid,
+      { $push: { likes: _id } },
+      { new: true }
+    );
+    return res.status(200).json({
+      success: response ? true : false,
+      rs: response,
+    });
+  }
+});
+const dislikeBlog = asynHandler(async (req, res) => {
+  const { _id } = req.user;
+  const { bid } = req.params;
+  console.log(bid);
+  if (!bid) throw new Error("Missing inputs");
+  const blog = await modelBlog.findById(bid);
+  const alreadyLike = blog?.likes?.find((el) => el.toString() === _id);
+  if (alreadyLike) {
+    const response = await modelBlog.findByIdAndUpdate(
+      bid,
+      { $pull: { likes: _id } },
+      { new: true }
+    );
+    return res.status(200).json({
+      success: response ? true : false,
+      rs: response,
+    });
+  }
+
+  const isdisliked = blog?.dislikes?.find((el) => el.toString() === _id);
+  if (isdisliked) {
+    const response = await modelBlog.findByIdAndUpdate(
+      bid,
+      { $pull: { dislikes: _id } },
+      { new: true }
+    );
+    return res.status(200).json({
+      success: response ? true : false,
+      rs: response,
+    });
+  } else {
+    const response = await modelBlog.findByIdAndUpdate(
+      bid,
+      { $push: { dislikes: _id } },
+      { new: true }
+    );
+    return res.status(200).json({
+      success: response ? true : false,
+      rs: response,
+    });
+  }
+});
+
+const getblog = asynHandler(async (req, res) => {
+  const excludeFields = "firstname lastname";
+  const { bid } = req.params;
+  const blog = await modelBlog
+    .findByIdAndUpdate(bid, { $inc: { numberViews: 1 } }, { new: true })
+    .populate("likes", excludeFields)
+    .populate("dislikes", excludeFields);
+
+  return res.json({
+    success: blog ? true : false,
+    re: blog,
   });
 });
 
@@ -43,4 +141,7 @@ export default {
   updateBlog,
   getBlogs,
   deleteBlog,
+  likeBlog,
+  dislikeBlog,
+  getblog,
 };
