@@ -1,5 +1,5 @@
 import userRouter from "./user.js";
-import productRouter from "./productCategory.js";
+import productRouter from "./product.js";
 import productCategoryRouter from "./productCategory.js";
 import blogCategoryRouter from "./blogCategory.js";
 import blogRouter from "./blog.js";

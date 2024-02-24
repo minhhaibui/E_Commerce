@@ -136,6 +136,20 @@ const getblog = asynHandler(async (req, res) => {
   });
 });
 
+const upLoadImagesBlog = asynHandler(async (req, res) => {
+  console.log(req.file);
+  const { bid } = req.params;
+  if (!req.file) throw new Error("missing input");
+  const response = await modelBlog.findByIdAndUpdate(
+    bid,
+    { image: req.file.path },
+    { new: true }
+  );
+  return res.status(200).json({
+    success: response ? true : false,
+    updatedBlog: response ? response : "can't upload image blog",
+  });
+});
 export default {
   createBlog,
   updateBlog,
@@ -144,4 +158,5 @@ export default {
   likeBlog,
   dislikeBlog,
   getblog,
+  upLoadImagesBlog,
 };
