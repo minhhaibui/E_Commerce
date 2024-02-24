@@ -172,7 +172,9 @@ const updateUser = asynHandler(async (req, res) => {
   const response = await modelUser.findByIdAndUpdate(_id, req.body, {
     new: true,
   });
-  select("-password -role -refreshToken");
+  select(
+    "-password -role -refreshToken -passwordResetToken -passwordResetExprires"
+  );
   return res.status(200).json({
     success: response ? true : false,
     message: response ? response : "some thing went wrong",
@@ -181,13 +183,39 @@ const updateUser = asynHandler(async (req, res) => {
 const updateUserByAdmin = asynHandler(async (req, res) => {
   const { id } = req.params;
   if (Object.keys(req.body).length === 0) throw new Error("missing inputs");
-  const response = await modelUser.findByIdAndUpdate(id, req.body, {
-    new: true,
-  });
-  select("-password -role -refreshToken");
+  const response = await modelUser
+    .findByIdAndUpdate(id, req.body, {
+      new: true,
+    })
+    .select(
+      "-password -role -refreshToken -passwordResetToken -passwordResetExprires"
+    );
   return res.status(200).json({
     success: response ? true : false,
-    message: response ? response : "some thing went wrong",
+    updatedUser: response ? response : "some thing went wrong",
+  });
+});
+
+const updateAddressUser = asynHandler(async (req, res) => {
+  const { _id } = req.user;
+  const { address } = req.body;
+  const user = await modelUser.findById(_id);
+  if (!address) throw new Error("missing inputs");
+  if (user.address.find((el) => el === address))
+    throw new Error("address already exists ");
+
+  const response = await modelUser
+    .findByIdAndUpdate(
+      _id,
+      { $push: { address: address } },
+      {
+        new: true,
+      }
+    )
+    .select("-password -role -refreshToken");
+  return res.status(200).json({
+    success: response ? true : false,
+    updatedUser: response ? response : "some thing went wrong",
   });
 });
 
@@ -203,4 +231,5 @@ export default {
   deleteUser,
   updateUser,
   updateUserByAdmin,
+  updateAddressUser,
 };
