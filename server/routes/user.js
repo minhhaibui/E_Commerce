@@ -19,6 +19,7 @@ router.put(
   veryfyAccessToken,
   userController.updateAddressUser
 );
+router.put("/cart", veryfyAccessToken, userController.addTocart);
 
 router.put(
   "/:id",
