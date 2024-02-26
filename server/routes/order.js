@@ -5,11 +5,15 @@ import { veryfyAccessToken, isAdmin } from "../app/middlewares/verifyToken.js";
 const router = Router();
 
 router.post("/", [veryfyAccessToken], oderController.createOrder);
-// router.put("/like/:bid", [veryfyAccessToken], oderController.likeBlog);
-// router.put("/dislike/:bid", [veryfyAccessToken], oderController.dislikeBlog);
-// router.put("/:bid", [veryfyAccessToken, isAdmin], oderController.updateBlog);
-// router.get("/:bid", oderController.getblog);
-// router.get("/", oderController.getBlogs);
-// router.delete("/:bid", [veryfyAccessToken, isAdmin], oderController.deleteBlog);
-
+router.put(
+  "/status/:oid",
+  [veryfyAccessToken, isAdmin],
+  oderController.updateStatus
+);
+router.get("/", veryfyAccessToken, oderController.getUserOrder);
+router.get(
+  "/admin",
+  [veryfyAccessToken, isAdmin],
+  oderController.getOrderByAdmin
+);
 export default router;
